@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal, Box, List, ListItem, Typography, Button, Divider, TextareaAutosize } from "@mui/material";
+import debounce from "lodash.debounce";
+import { updateFilesInMessage } from "../config/chatDB";
 
 const EditorModal = ({ open, onClose, files, onSave }) => {
   const fileKeys = files ? Object.keys(files) : [];
   const [selectedFile, setSelectedFile] = useState(fileKeys[0] || "");
   const [fileContents, setFileContents] = useState(files || {});
+  const [saving, setSaving] = useState(false);
+  const [saveTimeout, setSaveTimeout] = useState(null);
 
-  // Update when new files are passed in
   useEffect(() => {
     if (files && Object.keys(files).length > 0) {
       setSelectedFile(Object.keys(files)[0]);
@@ -14,9 +17,34 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
     }
   }, [files]);
 
+  // Debounced save function
+  const debouncedSave = useCallback(
+    debounce(async (newFiles) => {
+      setSaving(true);
+      console.log(newFiles)
+      await updateFilesInMessage(newFiles);
+      setSaving(false);
+    }, 1000),
+    []
+  );
+
   const handleFileChange = (filename, value) => {
-    setFileContents((prev) => ({ ...prev, [filename]: value }));
+    const newContents = { ...fileContents, [filename]: value };
+    setFileContents(newContents);
+
+    setSaving(true);
+
+    if (saveTimeout) clearTimeout(saveTimeout);
+
+    const timeout = setTimeout(() => {
+      setSaving(false);
+    }, 1200);
+
+    setSaveTimeout(timeout);
+
+    debouncedSave(newContents); 
   };
+
 
   const handlePush = () => {
     onSave(fileContents);
@@ -26,10 +54,15 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
   return (
     <Modal open={open} onClose={onClose}>
       <Box className="editor-modal">
+        <Box className="editor-topbar">
+          <Typography className="editor-title">Editor</Typography>
+          <Typography className="editor-saving">{saving ? "Saving changes..." : "All changes saved"}</Typography>
+        </Box>
+
         {fileKeys.length === 0 ? (
           <Typography className="editor-empty">No files to show.</Typography>
         ) : (
-          <>
+          <Box className="editor-body">
             <Box className="editor-sidebar">
               <Typography className="editor-title">Terraform Files</Typography>
               <Divider />
@@ -61,7 +94,7 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
                 <Button variant="outlined" onClick={onClose}>Cancel</Button>
               </Box>
             </Box>
-          </>
+          </Box>
         )}
       </Box>
     </Modal>

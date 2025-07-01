@@ -5,26 +5,24 @@ import {
   IconButton,
   Paper,
   Divider,
-  Typography,
-  TextareaAutosize,
-  Button,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import { saveMessages, loadMessages } from "../config/chatDB";
 import EditorModal from "./EditorModal";
+import TerraformFilePreviewCard from "./TerraformFilePreviewCard";
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editableFiles, setEditableFiles] = useState(null); // opens modal
   const messagesEndRef = useRef(null);
-  const [editableFiles, setEditableFiles] = useState(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // ⬇️ Load chat history from IDB on first render
+  // Load chat + file preview from IDB
   useEffect(() => {
     (async () => {
       const stored = await loadMessages();
@@ -32,7 +30,6 @@ const Chat = () => {
     })();
   }, []);
 
-  // 💾 Save messages to IDB on update
   useEffect(() => {
     if (messages.length) {
       saveMessages(messages);
@@ -60,9 +57,8 @@ const Chat = () => {
     setInput("");
     setLoading(true);
 
-    // ✅ Format the entire message history for Ollama
     const message_history = updatedMessages.map((msg) => ({
-      role: msg.sender, // user or assistant
+      role: msg.sender,
       content: msg.text,
     }));
 
@@ -76,8 +72,6 @@ const Chat = () => {
         mode: messages.length === 0 ? "create" : "reply",
       });
 
-      console.log(res);
-
       const resPayload = res.data?.n8n_response?.[0];
 
       if (resPayload?.status === "ask") {
@@ -87,7 +81,12 @@ const Chat = () => {
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } else if (resPayload?.files) {
-        setEditableFiles(resPayload.files); // 🎯 show editor now
+        const assistantFileMsg = {
+          text: "Here are your Terraform files",
+          sender: "assistant",
+          files: resPayload.files,
+        };
+        setMessages((prev) => [...prev, assistantFileMsg]);
       } else {
         setMessages((prev) => [
           ...prev,
@@ -117,29 +116,46 @@ const Chat = () => {
       <Paper className="chat-container" elevation={3}>
         <div className="chat-list">
           {messages.map((msg, idx) => (
-            <div key={idx} className={`message-row ${msg.sender}`}>
-              <div className={`message-bubble ${msg.sender}`}>{msg.text}</div>
+            <div key={idx} className="message-row-wrapper">
+              {msg.text && !msg.files && (
+                <div className={`message-row ${msg.sender}`}>
+                  <div className={`message-bubble ${msg.sender}`}>{msg.text}</div>
+                </div>
+              )}
+
+              {msg.files && (
+                <div className="file-card-wrapper">
+                  <TerraformFilePreviewCard
+                    files={msg.files}
+                    onOpenEditor={() => setEditableFiles(msg.files)}
+                  />
+                </div>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
-          <EditorModal
-            open={!!editableFiles}
-            files={editableFiles}
-            onClose={() => setEditableFiles(null)}
-            onSave={async (updatedFiles) => {
-              const github_token = localStorage.getItem("github_token");
-              await axios.post("http://localhost:5678/webhook/push-to-github", {
-                username: "demo-user",
-                github_token,
-                edited_files: updatedFiles,
-                repo: "tf-demo-user-XXXX",
-                branch: "draft-test-XXXX",
-              });
-              alert("✅ Files pushed to GitHub");
-              setEditableFiles(null);
-            }}
-          />
         </div>
+
+        {/* ✅ Modal Only Opens When User Clicks "Edit" */}
+        <EditorModal
+          open={!!editableFiles}
+          files={editableFiles}
+          onClose={() => setEditableFiles(null)}
+          onSave={async (updatedFiles) => {
+            const github_token = localStorage.getItem("github_token");
+            await axios.post("http://localhost:5678/webhook/push-to-github", {
+              username: "demo-user",
+              github_token,
+              edited_files: updatedFiles,
+              repo: "tf-demo-user-XXXX",
+              branch: "draft-test-XXXX",
+            });
+
+            alert("✅ Files pushed to GitHub");
+            setEditableFiles(null);
+          }}
+        />
+
         <Divider />
         <div className="input-container">
           <TextField
