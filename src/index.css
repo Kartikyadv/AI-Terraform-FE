@@ -207,6 +207,12 @@ body {
   margin-top: 16px;
 }
 
+.editor-actions .MuiButton-outlined.Mui-disabled {
+  color: #595151;
+  cursor: not-allowed;
+}
+
+
 /* ================================ */
 /* ✅ Terraform Preview Card CSS   */
 /* ================================ */

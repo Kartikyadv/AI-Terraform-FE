@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import debounce from "lodash.debounce";
 import { initDB, updateFilesInMessage } from "../config/chatDB";
+import DiffViewerModal from "./DiffViewerModal";
 
 const EditorModal = ({ open, onClose, files, onSave }) => {
   const fileKeys = files ? Object.keys(files) : [];
@@ -18,6 +19,10 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
   const [fileContents, setFileContents] = useState(files || {});
   const [saving, setSaving] = useState(false);
   const [saveTimeout, setSaveTimeout] = useState(null);
+  const [showDiff, setShowDiff] = useState(false);
+  const [lastPushedFiles, setLastPushedFiles] = useState([]);
+  const [viewChangesEnabled, setViewChangesEnabled] = useState(false);
+
 
   useEffect(() => {
     const syncFilesFromDB = async () => {
@@ -65,12 +70,21 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
     debouncedSave(newContents);
   };
 
-  const handlePush = () => {
-    onSave(fileContents);
-    onClose();
+  const handlePush = async () => {
+    try {
+      const res = await onSave(fileContents);
+      setLastPushedFiles(res);               
+      setViewChangesEnabled(true);           
+      onClose();                             
+      setTimeout(() => setShowDiff(true), 200);
+    } catch (err) {
+      console.error("❌ Push failed", err);
+    }
   };
 
+
   return (
+    <>
     <Modal open={open} onClose={onClose}>
       <Box className="editor-modal">
         <Box className="editor-topbar">
@@ -113,6 +127,13 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
                 onChange={(e) => handleFileChange(selectedFile, e.target.value)}
               />
               <Box className="editor-actions">
+                <Button
+                    variant="outlined"
+                    onClick={() => setShowDiff(true)}
+                    disabled={!viewChangesEnabled}
+                  >
+                    View Changes
+                  </Button>
                 <Button variant="contained" onClick={handlePush}>
                   Push to GitHub →
                 </Button>
@@ -125,6 +146,12 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
         )}
       </Box>
     </Modal>
+    <DiffViewerModal
+      open={showDiff}
+      onClose={() => setShowDiff(false)}
+      files={lastPushedFiles}
+    />
+    </>
   );
 };
 

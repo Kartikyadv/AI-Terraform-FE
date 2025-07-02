@@ -110,24 +110,25 @@ const Chat = () => {
     }
   };
 
-  // 💾 Push edited files
   const handleSaveFiles = async (updatedFiles) => {
     const github_token = localStorage.getItem("github_token");
     try {
       const res = await axios.post("http://localhost:5678/webhook-test/github-push", {
         github_token,
-        repo: "demo2",
+        repo: "demo4",
         branch: "demobranch",
         edited_files: updatedFiles,
       });
-      console.log(res);
       alert("✅ Files pushed to GitHub");
       setEditableFiles(null);
+      return res.data; // 🔥 return pushed file diff metadata
     } catch (err) {
       console.error("❌ Push failed", err);
       alert("Failed to push files");
+      return []; // fallback return to prevent crash
     }
   };
+
 
   // 🧱 UI
   return (
