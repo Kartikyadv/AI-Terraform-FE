@@ -22,7 +22,6 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Load chat + file preview from IDB
   useEffect(() => {
     (async () => {
       const stored = await loadMessages();
@@ -143,19 +142,22 @@ const Chat = () => {
           onClose={() => setEditableFiles(null)}
           onSave={async (updatedFiles) => {
             const github_token = localStorage.getItem("github_token");
-            await axios.post("http://localhost:5678/webhook/push-to-github", {
-              username: "demo-user",
-              github_token,
-              edited_files: updatedFiles,
-              repo: "tf-demo-user-XXXX",
-              branch: "draft-test-XXXX",
-            });
-
-            alert("✅ Files pushed to GitHub");
-            setEditableFiles(null);
+            try {
+              const res = await axios.post("http://localhost:5678/webhook-test/github-push", {
+                github_token,
+                repo: "demo2",         // or your dynamic repo name
+                branch: "demobranch",  // replace as needed
+                edited_files: updatedFiles,
+              });
+              console.log(res)
+              alert("✅ Files pushed to GitHub");
+              setEditableFiles(null);
+            } catch (err) {
+              console.error("❌ Push failed", err);
+              alert("Failed to push files");
+            }
           }}
         />
-
         <Divider />
         <div className="input-container">
           <TextField

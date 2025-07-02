@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Modal, Box, List, ListItem, Typography, Button, Divider, TextareaAutosize } from "@mui/material";
+import {
+  Modal,
+  Box,
+  List,
+  ListItem,
+  Typography,
+  Button,
+  Divider,
+  TextareaAutosize,
+} from "@mui/material";
 import debounce from "lodash.debounce";
-import { updateFilesInMessage } from "../config/chatDB";
+import { initDB, updateFilesInMessage } from "../config/chatDB";
 
 const EditorModal = ({ open, onClose, files, onSave }) => {
   const fileKeys = files ? Object.keys(files) : [];
@@ -11,17 +20,28 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
   const [saveTimeout, setSaveTimeout] = useState(null);
 
   useEffect(() => {
-    if (files && Object.keys(files).length > 0) {
-      setSelectedFile(Object.keys(files)[0]);
-      setFileContents({ ...files });
-    }
-  }, [files]);
+    const syncFilesFromDB = async () => {
+      if (open) {
+        const db = await initDB();
+        const allMsgs = await db.getAll("messages");
+        const latest = [...allMsgs]
+          .reverse()
+          .find((m) => m.sender === "assistant" && m.files);
+        if (latest?.files) {
+          setSelectedFile(Object.keys(latest.files)[0]);
+          setFileContents({ ...latest.files });
+        }
+      }
+    };
+
+    syncFilesFromDB();
+  }, [open]);
 
   // Debounced save function
   const debouncedSave = useCallback(
     debounce(async (newFiles) => {
       setSaving(true);
-      console.log(newFiles)
+      console.log(newFiles);
       await updateFilesInMessage(newFiles);
       setSaving(false);
     }, 1000),
@@ -42,9 +62,8 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
 
     setSaveTimeout(timeout);
 
-    debouncedSave(newContents); 
+    debouncedSave(newContents);
   };
-
 
   const handlePush = () => {
     onSave(fileContents);
@@ -56,7 +75,9 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
       <Box className="editor-modal">
         <Box className="editor-topbar">
           <Typography className="editor-title">Editor</Typography>
-          <Typography className="editor-saving">{saving ? "Saving changes..." : "All changes saved"}</Typography>
+          <Typography className="editor-saving">
+            {saving ? "Saving changes..." : "All changes saved"}
+          </Typography>
         </Box>
 
         {fileKeys.length === 0 ? (
@@ -82,7 +103,9 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
             </Box>
 
             <Box className="editor-content">
-              <Typography variant="subtitle1" className="editor-filename">{selectedFile}</Typography>
+              <Typography variant="subtitle1" className="editor-filename">
+                {selectedFile}
+              </Typography>
               <TextareaAutosize
                 className="editor-textarea"
                 minRows={20}
@@ -90,8 +113,12 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
                 onChange={(e) => handleFileChange(selectedFile, e.target.value)}
               />
               <Box className="editor-actions">
-                <Button variant="contained" onClick={handlePush}>Push to GitHub →</Button>
-                <Button variant="outlined" onClick={onClose}>Cancel</Button>
+                <Button variant="contained" onClick={handlePush}>
+                  Push to GitHub →
+                </Button>
+                <Button variant="outlined" onClick={onClose}>
+                  Cancel
+                </Button>
               </Box>
             </Box>
           </Box>
