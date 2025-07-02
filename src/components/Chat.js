@@ -12,16 +12,19 @@ import EditorModal from "./EditorModal";
 import TerraformFilePreviewCard from "./TerraformFilePreviewCard";
 
 const Chat = () => {
+  // 🔄 State
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [editableFiles, setEditableFiles] = useState(null); // opens modal
+  const [editableFiles, setEditableFiles] = useState(null);
   const messagesEndRef = useRef(null);
 
+  // 🔁 Scroll on new messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // 🗂 Load chat history on mount
   useEffect(() => {
     (async () => {
       const stored = await loadMessages();
@@ -29,25 +32,23 @@ const Chat = () => {
     })();
   }, []);
 
+  // 💾 Save messages to IndexedDB
   useEffect(() => {
-    if (messages.length) {
-      saveMessages(messages);
-    }
+    if (messages.length) saveMessages(messages);
   }, [messages]);
 
+  // ⬇ Scroll to latest message
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  // 🚀 Send user prompt and receive files/response
   const handleSend = async () => {
     const prompt = input.trim();
     if (!prompt || loading) return;
 
     const github_token = localStorage.getItem("github_token");
-    if (!github_token) {
-      alert("Please login with GitHub first.");
-      return;
-    }
+    if (!github_token) return alert("Please login with GitHub first.");
 
     const userMessage = { text: prompt, sender: "user" };
     const updatedMessages = [...messages, userMessage];
@@ -56,9 +57,9 @@ const Chat = () => {
     setInput("");
     setLoading(true);
 
-    const message_history = updatedMessages.map((msg) => ({
-      role: msg.sender,
-      content: msg.text,
+    const message_history = updatedMessages.map(({ sender, text }) => ({
+      role: sender,
+      content: text,
     }));
 
     try {
@@ -74,35 +75,34 @@ const Chat = () => {
       const resPayload = res.data?.n8n_response?.[0];
 
       if (resPayload?.status === "ask") {
-        const assistantMessage = {
+        setMessages((prev) => [...prev, {
           text: resPayload.last_question,
           sender: "assistant",
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+        }]);
       } else if (resPayload?.files) {
-        const assistantFileMsg = {
+        setMessages((prev) => [...prev, {
           text: "Here are your Terraform files",
           sender: "assistant",
           files: resPayload.files,
-        };
-        setMessages((prev) => [...prev, assistantFileMsg]);
+        }]);
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { text: "⚠️ Unexpected response.", sender: "assistant" },
-        ]);
+        setMessages((prev) => [...prev, {
+          text: "⚠️ Unexpected response.",
+          sender: "assistant",
+        }]);
       }
     } catch (error) {
       console.error("❌ Error submitting prompt:", error);
-      setMessages((prev) => [
-        ...prev,
-        { text: "❌ Failed to get response from server.", sender: "assistant" },
-      ]);
+      setMessages((prev) => [...prev, {
+        text: "❌ Failed to get response from server.",
+        sender: "assistant",
+      }]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ⌨️ Enter key support
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -110,6 +110,26 @@ const Chat = () => {
     }
   };
 
+  // 💾 Push edited files
+  const handleSaveFiles = async (updatedFiles) => {
+    const github_token = localStorage.getItem("github_token");
+    try {
+      const res = await axios.post("http://localhost:5678/webhook-test/github-push", {
+        github_token,
+        repo: "demo2",
+        branch: "demobranch",
+        edited_files: updatedFiles,
+      });
+      console.log(res);
+      alert("✅ Files pushed to GitHub");
+      setEditableFiles(null);
+    } catch (err) {
+      console.error("❌ Push failed", err);
+      alert("Failed to push files");
+    }
+  };
+
+  // 🧱 UI
   return (
     <div className="app">
       <Paper className="chat-container" elevation={3}>
@@ -118,10 +138,11 @@ const Chat = () => {
             <div key={idx} className="message-row-wrapper">
               {msg.text && !msg.files && (
                 <div className={`message-row ${msg.sender}`}>
-                  <div className={`message-bubble ${msg.sender}`}>{msg.text}</div>
+                  <div className={`message-bubble ${msg.sender}`}>
+                    {msg.text}
+                  </div>
                 </div>
               )}
-
               {msg.files && (
                 <div className="file-card-wrapper">
                   <TerraformFilePreviewCard
@@ -135,30 +156,15 @@ const Chat = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ✅ Modal Only Opens When User Clicks "Edit" */}
         <EditorModal
           open={!!editableFiles}
           files={editableFiles}
           onClose={() => setEditableFiles(null)}
-          onSave={async (updatedFiles) => {
-            const github_token = localStorage.getItem("github_token");
-            try {
-              const res = await axios.post("http://localhost:5678/webhook-test/github-push", {
-                github_token,
-                repo: "demo2",         // or your dynamic repo name
-                branch: "demobranch",  // replace as needed
-                edited_files: updatedFiles,
-              });
-              console.log(res)
-              alert("✅ Files pushed to GitHub");
-              setEditableFiles(null);
-            } catch (err) {
-              console.error("❌ Push failed", err);
-              alert("Failed to push files");
-            }
-          }}
+          onSave={handleSaveFiles}
         />
+
         <Divider />
+
         <div className="input-container">
           <TextField
             className="chat-input"
