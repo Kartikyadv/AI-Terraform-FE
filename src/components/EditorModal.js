@@ -12,6 +12,7 @@ import {
 import debounce from "lodash.debounce";
 import { initDB, updateFilesInMessage } from "../config/chatDB";
 import DiffViewerModal from "./DiffViewerModal";
+import PushToGitHubModal from "./PushToGitHubModal";
 
 const EditorModal = ({ open, onClose, files, onSave }) => {
   const fileKeys = files ? Object.keys(files) : [];
@@ -22,7 +23,7 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
   const [showDiff, setShowDiff] = useState(false);
   const [lastPushedFiles, setLastPushedFiles] = useState([]);
   const [viewChangesEnabled, setViewChangesEnabled] = useState(false);
-
+  const [showPushModal, setShowPushModal] = useState(false);
 
   useEffect(() => {
     const syncFilesFromDB = async () => {
@@ -70,17 +71,17 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
     debouncedSave(newContents);
   };
 
-  const handlePush = async () => {
+  const handlePush = async (gitDetails) => {
     try {
-      const res = await onSave(fileContents);
-      setLastPushedFiles(res);               
-      setViewChangesEnabled(true);           
-      onClose();                             
+      const res = await onSave(fileContents, gitDetails);
+      setLastPushedFiles(res);
+      setViewChangesEnabled(true);
       setTimeout(() => setShowDiff(true), 200);
     } catch (err) {
       console.error("❌ Push failed", err);
     }
   };
+
 
 
   return (
@@ -134,7 +135,7 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
                   >
                     View Changes
                   </Button>
-                <Button variant="contained" onClick={handlePush}>
+                <Button variant="contained" onClick={() => setShowPushModal(true)}>
                   Push to GitHub →
                 </Button>
                 <Button variant="outlined" onClick={onClose}>
@@ -151,6 +152,15 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
       onClose={() => setShowDiff(false)}
       files={lastPushedFiles}
     />
+    <PushToGitHubModal
+      open={showPushModal}
+      onClose={() => setShowPushModal(false)}
+      onSubmit={(gitDetails) => {
+        setShowPushModal(false);
+        handlePush(gitDetails);
+      }}
+    />
+
     </>
   );
 };

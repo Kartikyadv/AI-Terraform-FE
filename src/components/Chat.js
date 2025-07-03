@@ -110,24 +110,29 @@ const Chat = () => {
     }
   };
 
-  const handleSaveFiles = async (updatedFiles) => {
+  const handleSaveFiles = async (updatedFiles, gitDetails) => {
     const github_token = localStorage.getItem("github_token");
+
     try {
       const res = await axios.post("http://localhost:5678/webhook-test/github-push", {
         github_token,
-        repo: "demo4",
-        branch: "demobranch",
+        repo: gitDetails.repoName,
+        description: gitDetails.description,
+        branch: gitDetails.branch,
+        visibility: gitDetails.visibility,
         edited_files: updatedFiles,
       });
+
       alert("✅ Files pushed to GitHub");
       setEditableFiles(null);
-      return res.data; // 🔥 return pushed file diff metadata
+      return res.data;
     } catch (err) {
       console.error("❌ Push failed", err);
       alert("Failed to push files");
-      return []; // fallback return to prevent crash
+      return [];
     }
   };
+
 
 
   // 🧱 UI
