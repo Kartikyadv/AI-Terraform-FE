@@ -7,7 +7,7 @@ function App() {
   const [githubUser, setGithubUser] = useState(null);
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:8000/auth/github';
+    window.location.href = 'http://localhost:3000/api/auth/github';
   };
 
   useEffect(() => {
@@ -22,6 +22,7 @@ function App() {
         .then(data => {
           if (data?.login) {
             setGithubUser(data);
+            localStorage.setItem('github_username', data.login);
             console.log('✅ GitHub user:', data);
           }
         })

@@ -9,10 +9,10 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactDiffViewer from "react-diff-viewer-continued";
+import axios from "axios"; // ⬅️ Add this at the top if not already
 
 // 🛠️ Basic parser for Git-style patch → old/new strings
 const parsePatchToDiff = (patch) => {
-    console.log(patch)
   if (!patch) return { oldText: "", newText: "" };
 
   const lines = patch.split("\n");
@@ -37,35 +37,99 @@ const parsePatchToDiff = (patch) => {
 };
 
 const DiffViewerModal = ({ open, onClose, files = [] }) => {
+  const handleMergePR = async () => {
+    try {
+      const meta = files?.[0];
+      if (!meta) return alert("Missing PR metadata");
+
+      await axios.post("https://n8n.cloudsanalytics.ai/webhook/merge-pr", {
+        owner: meta.owner,
+        repo: meta.repo,
+        branch: meta.head,
+        branch: meta.head,
+        pr_number: meta.pr_number,
+        github_token: localStorage.getItem("github_token"),
+        approved: true
+      });
+      
+      alert("✅ PR merged successfully!");
+    } catch (err) {
+      console.error("❌ Merge failed:", err);
+      alert("Failed to merge PR");
+    }
+  };
+  
+  const handleClosePR = async () => {
+    try {
+      const meta = files?.[0];
+      if (!meta) return alert("Missing PR metadata");
+      
+      await axios.post("https://n8n.cloudsanalytics.ai/webhook/merge-pr", {
+        owner: meta.owner,
+        repo: meta.repo,
+        branch: meta.head,
+        pr_number: meta.pr_number,
+        github_token: localStorage.getItem("github_token"),
+        approved: false
+      });
+
+      alert("❎ PR closed.");
+    } catch (err) {
+      console.error("❌ Close failed:", err);
+      alert("Failed to close PR");
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        File Changes
-        <IconButton onClick={onClose}>
-          <CloseIcon />
-        </IconButton>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      scroll="paper"
+    >
+      <DialogTitle>
+        <Box className="diff-header-bar">
+          <Typography variant="h6" className="diff-title">
+            File Changes
+          </Typography>
+          <Box className="diff-action-buttons">
+            <button className="diff-btn danger" onClick={handleClosePR}>
+              Close PR
+            </button>
+            <button className="diff-btn primary" onClick={handleMergePR}>
+              Merge PR
+            </button>
+            <IconButton onClick={onClose}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </Box>
       </DialogTitle>
 
       <DialogContent dividers>
         {files.map((file, idx) => {
           const { oldText, newText } = parsePatchToDiff(file.patch);
           return (
-            <Box key={idx} sx={{ mb: 5 }}>
-              <Typography variant="h6" gutterBottom>
-                {file.filename}
-                {" "}
-                <Typography component="span" variant="caption" color="text.secondary">
+            <Box key={idx} className="diff-file-block">
+              <Box className="diff-file-header">
+                <Typography component="span" className="filename">
+                  {file.filename}
+                </Typography>
+                <Typography component="span" className="status">
                   ({file.status})
                 </Typography>
-              </Typography>
-              <ReactDiffViewer
-                oldValue={oldText}
-                newValue={newText}
-                splitView
-                showDiffOnly
-                hideLineNumbers={false}
-                useDarkTheme={false}
-              />
+              </Box>
+              <Box className="diff-content">
+                <ReactDiffViewer
+                  oldValue={oldText}
+                  newValue={newText}
+                  splitView={false}
+                  showDiffOnly
+                  hideLineNumbers={false}
+                  useDarkTheme={false}
+                />
+              </Box>
             </Box>
           );
         })}

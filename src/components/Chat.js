@@ -63,7 +63,7 @@ const Chat = () => {
     }));
 
     try {
-      const res = await axios.post("http://localhost:8000/submit-job", {
+      const res = await axios.post("http://localhost:3000/api/n8n/submit-job", {
         message_history,
         github_token,
         username: "demo-user",
@@ -71,7 +71,7 @@ const Chat = () => {
         vcs_provider: "github",
         mode: messages.length === 0 ? "create" : "reply",
       });
-
+      console.log(res)
       const resPayload = res.data?.n8n_response?.[0];
 
       if (resPayload?.status === "ask") {
@@ -112,10 +112,12 @@ const Chat = () => {
 
   const handleSaveFiles = async (updatedFiles, gitDetails) => {
     const github_token = localStorage.getItem("github_token");
+    const github_username = localStorage.getItem("github_username");
 
     try {
-      const res = await axios.post("http://localhost:5678/webhook-test/github-push", {
+      const res = await axios.post("https://n8n.cloudsanalytics.ai/webhook/github-push", {
         github_token,
+        github_username,
         repo: gitDetails.repoName,
         description: gitDetails.description,
         branch: gitDetails.branch,

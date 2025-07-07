@@ -24,6 +24,18 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
   const [lastPushedFiles, setLastPushedFiles] = useState([]);
   const [viewChangesEnabled, setViewChangesEnabled] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
+  const [githubToken, setGithubToken] = useState(false);
+
+
+  useEffect(() => {
+    const github_token = localStorage.getItem("github_token");
+    if (!github_token) {
+      alert("Please connect your GitHub account first.");
+      onClose();
+      return;
+    }
+    setGithubToken(github_token);
+  }, [])
 
   useEffect(() => {
     const syncFilesFromDB = async () => {
@@ -74,6 +86,7 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
   const handlePush = async (gitDetails) => {
     try {
       const res = await onSave(fileContents, gitDetails);
+      console.log(res)
       setLastPushedFiles(res);
       setViewChangesEnabled(true);
       setTimeout(() => setShowDiff(true), 200);
@@ -159,6 +172,7 @@ const EditorModal = ({ open, onClose, files, onSave }) => {
         setShowPushModal(false);
         handlePush(gitDetails);
       }}
+      githubToken={githubToken}
     />
 
     </>

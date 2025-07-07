@@ -11,7 +11,7 @@ const FormPage = () => {
     if (token) {
       localStorage.setItem('github_token', token);
       console.log('✅ GitHub token saved:', token);
-      navigate('/'); // Redirect to home or chat page
+      navigate('/'); 
     } else {
       console.error('❌ No GitHub token found in URL');
     }
